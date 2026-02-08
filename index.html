@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>RollerCoin Forge ROI Tool</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f1115;
+  color: #eee;
+  max-width: 520px;
+  margin: auto;
+  padding: 20px;
+}
+h1 { color: #ff9800; }
+label { display:block; margin-top:12px; }
+input, select, textarea, button {
+  width:100%;
+  padding:8px;
+  margin-top:4px;
+  background:#1c1f26;
+  color:#fff;
+  border:1px solid #333;
+}
+button {
+  background:#ff9800;
+  color:#000;
+  font-weight:bold;
+  cursor:pointer;
+}
+.result {
+  margin-top:20px;
+  padding:12px;
+  background:#161a20;
+}
+.warn { color:#ff5252; }
+.ok { color:#4caf50; }
+.mid { color:#ffc107; }
+small { color:#aaa; }
+</style>
+</head>
+
+<body>
+
+<h1>🔥 Forge ROI Calculator</h1>
+
+<label>Item Adı</label>
+<input id="itemName" placeholder="Örn: Legendary Miner X">
+
+<label>Craft RLT Maliyeti</label>
+<input id="craftCost" type="number">
+
+<label>Part / Miner Değeri (RLT)</label>
+<input id="partsValue" type="number">
+
+<label>Market Fiyatı (Otomatik dolar)</label>
+<input id="marketValue" type="number">
+
+<label>Forge Level</label>
+<select id="forgeLevel">
+  <option value="0">Level 1</option>
+  <option value="0.05">Level 2</option>
+  <option value="0.10">Level 3</option>
+  <option value="0.15">Level 4</option>
+  <option value="0.25">Level 5</option>
+</select>
+
+<label>Marketten Kopyala-Yapıştır (Opsiyonel)</label>
+<textarea id="pasteBox" placeholder="Marketten fiyatı buraya yapıştır"></textarea>
+
+<button onclick="calculate()">HESAPLA</button>
+
+<div class="result" id="result"></div>
+
+<script>
+function savePrice(item, price) {
+  const data = JSON.parse(localStorage.getItem("rc_prices")) || {};
+  data[item] = { price: price, time: Date.now() };
+  localStorage.setItem("rc_prices", JSON.stringify(data));
+}
+
+function loadPrice(item) {
+  const data = JSON.parse(localStorage.getItem("rc_prices")) || {};
+  return data[item] || null;
+}
+
+function extractPrice(text) {
+  const match = text.match(/([\d.]+)\s*RLT/i);
+  return match ? Number(match[1]) : null;
+}
+
+function calculate() {
+  const item = itemName.value.trim();
+  const craft = Number(craftCost.value);
+  const parts = Number(partsValue.value);
+  const discount = Number(forgeLevel.value);
+
+  if (pasteBox.value) {
+    const extracted = extractPrice(pasteBox.value);
+    if (extracted) marketValue.value = extracted;
+  }
+
+  let market = Number(marketValue.value);
+
+  if (!market && item) {
+    const cached = loadPrice(item);
+    if (cached) market = cached.price;
+  }
+
+  if (!item || !craft || !market) {
+    result.innerHTML = "<span class='warn'>Eksik bilgi var</span>";
+    return;
+  }
+
+  savePrice(item, market);
+
+  const discountedCraft = craft * (1 - discount);
+  const totalCost = discountedCraft + parts;
+  const net = market - totalCost;
+  const roi = (net / totalCost) * 100;
+
+  let status = "<span class='warn'>🔴 ZARAR</span>";
+  if (roi >= 20) status = "<span class='ok'>🟢 KÂRLI</span>";
+  else if (roi >= 0) status = "<span class='mid'>🟡 SINIRDA</span>";
+
+  let ageText = "";
+  const cached = loadPrice(item);
+  if (cached) {
+    const hours = (Date.now() - cached.time) / 36e5;
+    if (hours > 72) ageText = "<small class='warn'>Fiyat eski olabilir</small>";
+    else if (hours > 24) ageText = "<small class='mid'>Fiyat 24 saatten eski</small>";
+  }
+
+  result.innerHTML = `
+    İndirimli Craft: ${discountedCraft.toFixed(2)} RLT<br>
+    Toplam Maliyet: ${totalCost.toFixed(2)} RLT<br>
+    Net Kâr: ${net.toFixed(2)} RLT<br>
+    ROI: %${roi.toFixed(1)}<br>
+    Durum: <b>${status}</b><br>
+    ${ageText}
+  `;
+}
+</script>
+
+</body>
+</html>
